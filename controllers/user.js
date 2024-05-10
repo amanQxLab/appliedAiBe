@@ -23,7 +23,6 @@ module.exports.login = async (req, res, next) => {
           }
       const userByEmail = await UserModel.findOne({ email });
       const userByGoodleId = await UserModel.findOne({ 'thirdPartyLogin.googleId': googleId });
-      console.log("userbyemail--", userByEmail, "userbygoogle----", userByGoodleId)
       if (!userByEmail && userByGoodleId) {
         return helper.sendErrorResponse(
           {
@@ -163,25 +162,12 @@ module.exports.login = async (req, res, next) => {
     }
     
   } catch (error) {
-    console.log(error, "-----------------------------------------------------");
-    if (error.errors) {
-      const errorMessages = Object.values(error.errors).map(
-        (err) => err.message
-      );
-      console.log("---1--->", errorMessages);
-      return helper.sendErrorResponse({
-        status: "failure",
-        status_code: 400,
-        message: errorMessages.message,
-        data: {}},res);
-    } else {
-      console.log("---2--->", error.message);
-      return helper.sendErrorResponse({
-        status: "failure",
-        status_code: 400,
-        message: error.message.message,
-        data: {}},res);
-    }
+    console.error('Error login user:', error);
+        return helper.sendErrorResponse({
+          status: "failure",
+          status_code: 500,
+          message: "Internal server error..",
+          data: {}},res);
   }
 };
 

@@ -5,5 +5,6 @@ module.exports.config = {
   refreshToken_age: process.env.REFRESHTOKEN_AGE,
   accessToken_secret: process.env.ACCESSTOKEN_SECRET,
   refreshToken_secret: process.env.REFRESHTOKEN_SECRET,
-  port: process.env.PORT
+  port: process.env.PORT,
+  mongoUrl: process.env.MONGO_URL
 };
