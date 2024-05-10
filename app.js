@@ -7,6 +7,7 @@ const fileName = (type === '' || type === 'start') ? 'env' : type + '.env';
 require('dotenv').config({ path: './environments/.'+ fileName });
 
 const cookieParser = require('cookie-parser');
+const { config } = require("./config/config");
 
 /*******************************************************************
  * @Purpose: Database setup
@@ -55,7 +56,7 @@ app.use('/api/v1', rtsIndex);//To be deleted
 /*******************************************************************
  * @Purpose: create fork to use full cpu uses
 *******************************************************************/
-app.set("port", 8000);
+app.set("port", config.port);
 const http = require("http").createServer(app);
 
 if (!sticky.listen(http, app.get("port"))) {
@@ -70,6 +71,7 @@ if (!sticky.listen(http, app.get("port"))) {
       for (var i = 0; i < numWorkers; i++) {
         cluster.fork();
       }
+      console.log("---------", process.env.PORT, "--", process.env.JWT_SECRET)
       console.log('Main server started on port ' + app.get('port'));
   
       cluster.on("online", function(worker) {

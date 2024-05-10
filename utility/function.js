@@ -33,4 +33,29 @@ const validationData = async function (reqData, validateData) {
   return validationResponse
 }
 
-module.exports = {validationData}
+
+let sendErrorResponse = function(err, res) {
+  return res.status(err.status_code || 500).send({
+    status: "failure",
+    status_code: err.status_code || 500,
+    message: err.message,
+    error_description: err.error_description || "",
+    data: err.data || {},
+  });
+};
+
+let sendSuccessResponse = function(result, res, other) {
+  let totalcount = result.count ? result.count : "";
+  let sendData = {
+    status: "success",
+    status_code: result.status_code || 200,
+    message: result.message || "SUCCESS!",
+    data: result.data || {},
+    ...totalcount,
+  };
+  sendData = { ...sendData, ...other };
+  //console.log("status_code", sendData);
+  return res.status(result.status_code || 200).send(sendData);
+};
+
+module.exports = {validationData, sendSuccessResponse, sendErrorResponse}
