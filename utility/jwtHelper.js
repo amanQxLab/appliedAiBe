@@ -40,9 +40,44 @@ async function createRefreshToken(userId) {
   });
 }
 
+
+
+const decodeTokenData = async (expAccessToken) => {
+  if (expAccessToken) {
+    try {
+      const decoded = await jwt.decode(expAccessToken);
+      const userId = decoded.aud;
+      return userId;
+    } catch (error) {
+      return new Error("Error in decoding userId from access-token");
+    }
+  } else {
+    return null;
+  }
+};
+
+
+
+const verifyRefreshToken = (token) => {
+  if (!token) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, config.refreshToken_secret, (err, payload) => {
+      if (err) {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    });
+  });
+};
 module.exports = {
   createAccessToken,
   createRefreshToken,
+  decodeTokenData,
+  verifyRefreshToken
 };
 
 

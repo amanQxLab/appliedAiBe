@@ -8,6 +8,7 @@ require('dotenv').config({ path: './environments/.'+ fileName });
 
 const cookieParser = require('cookie-parser');
 const { config } = require("./config/config");
+const helper =  require('./utility/function')
 
 /*******************************************************************
  * @Purpose: Database setup
@@ -37,7 +38,15 @@ app.use(cors());
 const rtsIndex = require('./routes/index');//To be deleted
 app.use('/api/v1', rtsIndex);//To be deleted
   
-   
+app.get('*', (req, res)=>{
+  return helper.sendErrorResponse(
+    {
+      status: "failure",
+      status_code: 404,
+      message: "Route not found",
+    },
+    res
+  );})
 
 /*******************************************************************
  * @Purpose: Handle error if any

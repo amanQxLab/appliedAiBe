@@ -3,7 +3,7 @@ const TokenModel = require('../models/tokenSchema')
 const {validationData} = require("../utility/function")
 const helper =  require('../utility/function')
 const bcrypt = require('bcrypt')
-const {createAccessToken, createRefreshToken} = require("../utility/jwtHelper")
+const {createAccessToken, createRefreshToken, decodeTokenData, verifyRefreshToken} = require("../utility/jwtHelper")
 
 
 module.exports.login = async (req, res, next) => {
@@ -233,3 +233,116 @@ module.exports.signup = async (req, res) => {
       }
       
 }
+
+
+
+module.exports.refreshAccessToken = async (req, res) => {
+  const tokenArr = req.headers["authorization"]?.split(" ");
+  let expAccessToken = "";
+  if (Array.isArray(tokenArr)) {
+    expAccessToken = tokenArr[1];
+  }
+
+
+  if (expAccessToken) {
+    try {
+      const userId = await decodeTokenData(expAccessToken);
+      
+      if (!userId) {
+        return helper.sendErrorResponse(
+          {
+            status: "failure",
+            status_code: 401,
+            message: "Unauthorized: Invalid token found",
+          },
+          res
+        );
+      }
+      const userTokens = await TokenModel.findOne({ userId });
+      
+      if (!userTokens) {
+        return helper.sendErrorResponse(
+          {
+            status: "failure",
+            status_code: 401,
+            message: "Unauthorized: UserId not found",
+          },
+          res
+        );
+      }
+      const { token: accessToken, refreshToken } = userTokens;
+      if (accessToken !== expAccessToken) {
+        return helper.sendErrorResponse(
+          {
+            status: "failure",
+            status_code: 401,
+            message: "Unauthorize: System login detected login again",
+          },
+          res
+        );
+      }
+      const refreshTokenIsValid =  await verifyRefreshToken(refreshToken);
+      console.log('refershedTokenIsValid---',refreshTokenIsValid)
+      if (!refreshTokenIsValid) {
+        return helper.sendErrorResponse(
+          {
+            status: "failure",
+            status_code: 401,
+            message: "Unauthorized: Session expired login again",
+          },
+          res
+        )
+      }
+      const user = await UserModel.findOne({ _id: userId }).select(
+        "-password -createdAt -__v -updatedAt"
+      );
+      const newAccessToken = await createAccessToken(userId);
+      userTokens.token = newAccessToken;
+      await userTokens.save();
+
+      return helper.sendSuccessResponse(
+        {
+          status: "success",
+          status_code: 200,
+          message: "Success: Token refreshed successfully",
+          data: {
+            user: user,
+            token: newAccessToken,
+          },
+        },
+        res
+      );
+    } catch (error) {
+      console.log(error);
+      return helper.sendErrorResponse(
+        {
+          status: "failure",
+          status_code: 500,
+          message: "Internal server error : Unable to refresh token",
+        },
+        res
+      );
+    }
+  } else {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: "Bad request: Expired token not found",
+      },
+      res
+    );
+  }
+};
+
+module.exports.homeHandler = async (req, res) => {
+  return helper.sendSuccessResponse(
+    {
+      status: "success",
+      status_code: 200,
+      message: "Success: Accessed successfully",
+      data: {},
+    },
+    res
+  );
+};
