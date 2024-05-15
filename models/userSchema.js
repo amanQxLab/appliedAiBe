@@ -19,9 +19,7 @@ const UserSchema = new mongoose.Schema(
         thirdPartyLogin: {
             googleId: {
                 type: String,
-                default: '',
-                unique: true
-
+                default: ''
             }
         },
         verified: {
