@@ -1,28 +1,40 @@
-const UserModel = require('../models/userSchema');
-const TokenModel = require('../models/tokenSchema')
-const {validationData} = require("../utility/function")
-const helper =  require('../utility/function')
-const bcrypt = require('bcrypt')
-const {createAccessToken, createRefreshToken, decodeTokenData, verifyRefreshToken} = require("../utility/jwtHelper")
+const UserModel = require("../models/userSchema");
+const TokenModel = require("../models/tokenSchema");
+const { validationData } = require("../utility/function");
+const helper = require("../utility/function");
+const bcrypt = require("bcrypt");
+const {
+  createAccessToken,
+  createRefreshToken,
+  decodeTokenData,
+  verifyRefreshToken,
+} = require("../utility/jwtHelper");
 
+const PasswordRestModel = require("../models/passwordResetSchema");
+const emailService = require("../utility/emailService");
 
 module.exports.login = async (req, res, next) => {
   try {
-    
-    const body = req.body
-    const {googleId, email} = body
+    const body = req.body;
+    const { googleId, email } = body;
     if (googleId && email) {
-      const validatateData = await validationData(body, ['googleId','email'])
-    
+      const validatateData = await validationData(body, ["googleId", "email"]);
+
       if (validatateData && validatateData.status) {
-        return helper.sendErrorResponse({
-                status: "failure",
-                status_code: 400,
-                message: validatateData.error,
-                data: {}},res);
-          }
+        return helper.sendErrorResponse(
+          {
+            status: "failure",
+            status_code: 400,
+            message: validatateData.error,
+            data: {},
+          },
+          res
+        );
+      }
       const userByEmail = await UserModel.findOne({ email });
-      const userByGoodleId = await UserModel.findOne({ 'thirdPartyLogin.googleId': googleId });
+      const userByGoodleId = await UserModel.findOne({
+        "thirdPartyLogin.googleId": googleId,
+      });
       if (!userByEmail && userByGoodleId) {
         return helper.sendErrorResponse(
           {
@@ -34,7 +46,7 @@ module.exports.login = async (req, res, next) => {
           res
         );
       } else if (userByEmail && !userByGoodleId) {
-       return helper.sendErrorResponse(
+        return helper.sendErrorResponse(
           {
             status: "failure",
             status_code: 401,
@@ -79,7 +91,9 @@ module.exports.login = async (req, res, next) => {
           },
           res
         );
-      } else if (userByEmail?._id.toString() !== userByGoodleId?._id.toString()) {
+      } else if (
+        userByEmail?._id.toString() !== userByGoodleId?._id.toString()
+      ) {
         return helper.sendErrorResponse(
           {
             status: "failure",
@@ -90,7 +104,9 @@ module.exports.login = async (req, res, next) => {
           },
           res
         );
-      } else if (userByEmail?._id.toString() === userByGoodleId?._id.toString()) {
+      } else if (
+        userByEmail?._id.toString() === userByGoodleId?._id.toString()
+      ) {
         const userObj = userByEmail.toObject();
         if (userObj) {
           delete userObj.password;
@@ -118,123 +134,256 @@ module.exports.login = async (req, res, next) => {
           res
         );
       }
-    } 
- else{
-      const validatateData = await validationData(body, ['email','password'])
-    
+    } else {
+      const validatateData = await validationData(body, ["email", "password"]);
+
       if (validatateData && validatateData.status) {
-        return helper.sendErrorResponse({
-                status: "failure",
-                status_code: 400,
-                message: validatateData.error,
-                data: {}},res);
-          }
-  
+        return helper.sendErrorResponse(
+          {
+            status: "failure",
+            status_code: 400,
+            message: validatateData.error,
+            data: {},
+          },
+          res
+        );
+      }
+
       const { email, password } = req.body;
       const user = await UserModel.findOne({ email });
       console.log(user);
       if (!user) {
-        return helper.sendErrorResponse({
-          status: "failure",
-          status_code: 400,
-          message: "Email id does not exits",
-          data: {}},res);
+        return helper.sendErrorResponse(
+          {
+            status: "failure",
+            status_code: 400,
+            message: "Email id does not exits",
+            data: {},
+          },
+          res
+        );
       }
-     const isPassMatch =  await bcrypt.compare(password, user.password);
+      const isPassMatch = await bcrypt.compare(password, user.password);
       if (isPassMatch) {
         const userObj = user.toObject();
         delete userObj.password;
         const accessToken = await createAccessToken(user._id.toString());
         const refreshToken = await createRefreshToken(user._id.toString());
         const tokenObj = await TokenModel.findOne({ userId: user._id });
-  
+
         tokenObj.token = accessToken;
         tokenObj.refreshToken = refreshToken;
         await tokenObj.save();
-        return helper.sendSuccessResponse({ message: 'User loggedin successfully!!', data: {accessToken: accessToken}}, res);
+        return helper.sendSuccessResponse(
+          {
+            message: "User loggedin successfully!!",
+            data: { accessToken: accessToken },
+          },
+          res
+        );
       } else {
-        return helper.sendErrorResponse({
-          status: "failure",
-          status_code: 400,
-          message: "Invalid password",
-          data: {}},res);
-        }
+        return helper.sendErrorResponse(
+          {
+            status: "failure",
+            status_code: 400,
+            message: "Invalid password",
+            data: {},
+          },
+          res
+        );
+      }
     }
-    
   } catch (error) {
-    console.error('Error login user:', error);
-        return helper.sendErrorResponse({
-          status: "failure",
-          status_code: 500,
-          message: "Internal server error..",
-          data: {}},res);
+    console.error("Error login user:", error);
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 500,
+        message: "Internal server error..",
+        data: {},
+      },
+      res
+    );
   }
 };
 
-
 module.exports.signup = async (req, res) => {
-    try {
-        const body = req.body
-        const validatateData = await validationData(body, ['fName','lName','email','password','userType'])
-        if (validatateData && validatateData.status) {
-          return helper.sendErrorResponse({
-                  status: "failure",
-                  status_code: 400,
-                  message: validatateData.error,
-                  data: {}},res);
-            }
+  try {
+    const body = req.body;
+    const validatateData = await validationData(body, [
+      "fName",
+      "lName",
+      "email",
+      "password",
+      "userType",
+    ]);
+    if (validatateData && validatateData.status) {
+      return helper.sendErrorResponse(
+        {
+          status: "failure",
+          status_code: 400,
+          message: validatateData.error,
+          data: {},
+        },
+        res
+      );
+    }
 
-        const existingUser = await UserModel.findOne({ email: req.body.email });
-        if (existingUser) {
-          return helper.sendErrorResponse({
+    const existingUser = await UserModel.findOne({ email: req.body.email });
+    if (existingUser) {
+      return helper.sendErrorResponse(
+        {
+          status: "failure",
+          status_code: 400,
+          message: "Email already exists.",
+          data: {},
+        },
+        res
+      );
+    }
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
+    body.password = hashedPassword;
+    const newUser = new UserModel(body);
+    await newUser
+      .save()
+      .then(async (userdata) => {
+        console.log("yss", userdata._id);
+        const accessToken = await createAccessToken(userdata._id.toString());
+        const refreshToken = await createRefreshToken(userdata._id.toString());
+        console.log("---", accessToken, "rrrr", refreshToken);
+        const newToken = new TokenModel({
+          token: accessToken,
+          refreshToken: refreshToken,
+          userId: userdata._id,
+        });
+        await newToken
+          .save()
+          .then((Success) => {
+            return helper.sendSuccessResponse(
+              {
+                message: "User Registred Successfully!!",
+                data: { accessToken: accessToken },
+              },
+              res
+            );
+          })
+          .catch((errr) => {
+            return helper.sendErrorResponse(
+              {
                 status: "failure",
                 status_code: 400,
-                message: "Email already exists.",
-                data: {}},res);
-        }
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
-        body.password = hashedPassword
-        const newUser = new UserModel(body);
-        await newUser.save().then(async(userdata)=>{
-          console.log("yss", userdata._id)
-              const accessToken = await createAccessToken(userdata._id.toString())
-              const refreshToken = await createRefreshToken(userdata._id.toString())
-              console.log("---", accessToken, "rrrr", refreshToken)
-              const newToken = new TokenModel({
-                token: accessToken,
-                refreshToken: refreshToken,
-                userId: userdata._id
-              })
-              await newToken.save().then((Success)=>{
-                return helper.sendSuccessResponse({ message: 'User Registred Successfully!!', data: {accessToken: accessToken}}, res);
-              }).catch((errr)=>{
-                return helper.sendErrorResponse({
-                  status: "failure",
-                  status_code: 400,
-                  message: "Somthing went wrong in token creation",
-                  data: {}},res);
-                  
-              })
-        }).catch((err)=>{
-         return helper.sendErrorResponse({
+                message: "Somthing went wrong in token creation",
+                data: {},
+              },
+              res
+            );
+          });
+      })
+      .catch((err) => {
+        return helper.sendErrorResponse(
+          {
             status: "failure",
             status_code: 400,
             message: "Somthing went wrong in user creation",
-            data: {}},res);
-        })
-      } catch (error) {
-        console.error('Error registering user:', error);
-        return helper.sendErrorResponse({
+            data: {},
+          },
+          res
+        );
+      });
+  } catch (error) {
+    console.error("Error registering user:", error);
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 500,
+        message: "Internal server error..",
+        data: {},
+      },
+      res
+    );
+  }
+};
+
+module.exports.forgotPassword = async (req, res) => {
+  const body = req.body;
+  const validatateData = await validationData(body, ["email"]);
+  if (validatateData && validatateData.status) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: validatateData.error,
+        data: {},
+      },
+      res
+    );
+  }
+
+  const user = await UserModel.findOne({ email: req.body.email });
+  if (!user) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: "Email does not exists.",
+        data: {},
+      },
+      res
+    );
+  }
+  console.log("user-->", user);
+
+  // create otp
+  const otp = Math.floor(100000 + Math.random() * 900000);
+  console.log("otp", otp);
+
+  // sent opt via email
+  const sendEmailResponse = await emailService.sendMail(user.email, otp);
+
+  if (!sendEmailResponse) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: "Retry , something went wrong with sending mail",
+        data: {},
+      },
+      res
+    );
+  }
+
+  // store otp
+  const newPasswordReset = new PasswordRestModel({
+    userId: user._id,
+    otp: otp,
+  });
+
+  await newPasswordReset
+    .save()
+    .then(async (pwData) => {
+      console.log("yss", pwData._id);
+    })
+    .catch((err) => {
+      return helper.sendErrorResponse(
+        {
           status: "failure",
           status_code: 500,
           message: "Internal server error..",
-          data: {}},res);
-      }
-      
-}
+          data: {},
+        },
+        res
+      );
+    });
 
-
+  return helper.sendSuccessResponse(
+    {
+      message: "Reset password OTP sent successfully!!",
+      data: {},
+    },
+    res
+  );
+};
 
 module.exports.refreshAccessToken = async (req, res) => {
   const tokenArr = req.headers["authorization"]?.split(" ");
@@ -243,11 +392,10 @@ module.exports.refreshAccessToken = async (req, res) => {
     expAccessToken = tokenArr[1];
   }
 
-
   if (expAccessToken) {
     try {
       const userId = await decodeTokenData(expAccessToken);
-      
+
       if (!userId) {
         return helper.sendErrorResponse(
           {
@@ -259,7 +407,7 @@ module.exports.refreshAccessToken = async (req, res) => {
         );
       }
       const userTokens = await TokenModel.findOne({ userId });
-      
+
       if (!userTokens) {
         return helper.sendErrorResponse(
           {
@@ -281,8 +429,8 @@ module.exports.refreshAccessToken = async (req, res) => {
           res
         );
       }
-      const refreshTokenIsValid =  await verifyRefreshToken(refreshToken);
-      console.log('refershedTokenIsValid---',refreshTokenIsValid)
+      const refreshTokenIsValid = await verifyRefreshToken(refreshToken);
+      console.log("refershedTokenIsValid---", refreshTokenIsValid);
       if (!refreshTokenIsValid) {
         return helper.sendErrorResponse(
           {
@@ -291,7 +439,7 @@ module.exports.refreshAccessToken = async (req, res) => {
             message: "Unauthorized: Session expired login again",
           },
           res
-        )
+        );
       }
       const user = await UserModel.findOne({ _id: userId }).select(
         "-password -createdAt -__v -updatedAt"
@@ -327,12 +475,117 @@ module.exports.refreshAccessToken = async (req, res) => {
     return helper.sendErrorResponse(
       {
         status: "failure",
-        status_code: 400,
-        message: "Bad request: Expired token not found",
+        status_code: 500,
+        message: "Something went wrong in user creation",
       },
       res
     );
   }
+};
+
+module.exports.resetPassword = async (req, res) => {
+  const body = req.body;
+  const validatateData = await validationData(body, ["email", "password"]);
+  if (validatateData && validatateData.status) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: validatateData.error,
+        data: {},
+      },
+      res
+    );
+  }
+
+  const user = await UserModel.findOne({ email: req.body.email });
+  if (!user) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: "Email does not exists.",
+        data: {},
+      },
+      res
+    );
+  }
+
+  //get otp from db
+  const passwordOtp = await PasswordRestModel.findOne({
+    userId: user._id,
+    otpUsed: false,
+  }).sort({ createdAt: -1 });
+
+  if (!passwordOtp) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: "All otp are used",
+        data: {},
+      },
+      res
+    );
+  }
+
+  if (req.body.otp.toString() !== passwordOtp.otp) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: "OTP does not match",
+        data: {},
+      },
+      res
+    );
+  }
+
+  // if otp matches
+  const saltRounds = 10;
+  const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
+  const updatedUser = await UserModel.findOneAndUpdate(
+    { _id: user._id },
+    { password: hashedPassword }
+  );
+
+  if (!updatedUser || !updatedUser._id) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: "Something went wrong",
+        data: {},
+      },
+      res
+    );
+  }
+
+  // update Password rest status
+  const updatePasswaorReset = await PasswordRestModel.findOneAndUpdate(
+    { _id: passwordOtp._id },
+    { otpUsed: true }
+  );
+  if (!updatePasswaorReset || !updatePasswaorReset._id) {
+    return helper.sendErrorResponse(
+      {
+        status: "failure",
+        status_code: 400,
+        message: "Something went wrong",
+        data: {},
+      },
+      res
+    );
+  }
+
+  return helper.sendSuccessResponse(
+    {
+      status: "success",
+      status_code: 200,
+      message: "Password updated successfully",
+    },
+    res
+  );
 };
 
 module.exports.homeHandler = async (req, res) => {
@@ -341,7 +594,6 @@ module.exports.homeHandler = async (req, res) => {
       status: "success",
       status_code: 200,
       message: "Success: Accessed successfully",
-      data: {},
     },
     res
   );
